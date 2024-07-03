@@ -1,6 +1,10 @@
-# JSMonkey
+JSMonkey
+========
+
 <br>
-Useful JS monkey scripts (e.g. tamper monkey / grease monkey)
+
+Useful JS monkey scripts (e.g. [Tampermonkey](https://www.tampermonkey.net/) / grease monkey)
+
 <br>
-<br>
-[Perma.cc](jsmonkey-pub/Perma.cc/README.md)
+
+[Perma.cc](/Perma.cc/README.md)
