@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Perma.cc
 // @namespace    https://github.com/kaerez/jsmonkey-pub
-// @version      1.1
-// @description  Save to Perma.cc
+// @version      1.2
+// @description  Perma.cc tools
 // @author       EK
 // @match        *://*/*
 // @grant        GM_openInTab
