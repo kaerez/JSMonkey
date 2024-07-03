@@ -1,14 +1,13 @@
 // ==UserScript==
 // @name         Perma.cc
 // @namespace    https://github.com/kaerez/jsmonkey-pub
-// @version      1.0
+// @version      1.1
 // @description  Save to Perma.cc
 // @author       EK
 // @match        *://*/*
 // @grant        GM_openInTab
 // @grant        GM_registerMenuCommand
 // @run-at       document-start
-// @icon         https://github.com/kaerez/jsmonkey-pub/Perma.cc/static/icon.png
 // @noframes
 // @supportURL   https://github.com/kaerez/jsmonkey-pub/Perma.cc
 // @downloadURL  https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Perma.cc/permacc.user.js
@@ -27,8 +26,9 @@ function downpermacc(){
 
     if (!matches || matches.length < 3) {
         return; // Stop and do nothing if no valid fragment is found
+    } else {
+        location.href = location.href+'?type=warc_download';
     }
-    GM_openInTab(currentUrl+'?type=warc_download',true);
 }
 
 if (location.href.startsWith("https://perma.cc/")) {
