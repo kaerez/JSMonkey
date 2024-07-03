@@ -11,8 +11,8 @@
 // @icon         https://github.com/kaerez/jsmonkey-pub/Perma.cc/static/icon.png
 // @noframes
 // @supportURL   https://github.com/kaerez/jsmonkey-pub/Perma.cc
-// @downloadURL  https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Perma.cc/permacc.js
-// @updateURL    https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Perma.cc/permacc.js
+// @downloadURL  https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Perma.cc/permacc.user.js
+// @updateURL    https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Perma.cc/permacc.user.js
 // ==/UserScript==
 
 
