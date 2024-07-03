@@ -1,6 +1,6 @@
 Perma.CC
 ========
-[Return to home page](jsmonkey-pub/README.md)
+[Return to home page](/README.md)
 
 <br>
 
