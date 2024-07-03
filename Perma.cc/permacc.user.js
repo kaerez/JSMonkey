@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Perma.cc
-// @namespace    https://github.com/kaerez/jsmonkey-pub
-// @version      1.2
+// @namespace    https://github.com/kaerez/JSMonkey
+// @version      1.3
 // @description  Perma.cc tools
 // @author       EK
 // @match        *://*/*
@@ -9,9 +9,9 @@
 // @grant        GM_registerMenuCommand
 // @run-at       document-start
 // @noframes
-// @supportURL   https://github.com/kaerez/jsmonkey-pub/Perma.cc
-// @downloadURL  https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Perma.cc/permacc.user.js
-// @updateURL    https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Perma.cc/permacc.user.js
+// @supportURL   https://github.com/kaerez/JSMonkey
+// @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Perma.cc/permacc.user.js
+// @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Perma.cc/permacc.user.js
 // ==/UserScript==
 
 
