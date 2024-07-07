@@ -21,8 +21,4 @@ Click [here](https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Wayback/
 Archiving a URL
 ---------------
 
-Browse to the URL you want to archive, then: right click on an empty place in the page -> Tampermonkey -> Wayback -> Save
-
-__or__
-
-Click on the Tampermonkey extension -> Wayback -> Save
+Browse to the URL you want to archive, then: right click on an empty place in the page -> Tampermonkey -> Wayback
