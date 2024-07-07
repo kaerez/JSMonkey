@@ -14,7 +14,7 @@ Prerequisite
 Installation
 ------------
 
-Click [here](https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Wayback/wayback.user.js) to install this script
+Click [here](https://raw.githubusercontent.com/kaerez/JSMonkey/main/Wayback/wayback.user.js) to install this script
 
 <br>
 
