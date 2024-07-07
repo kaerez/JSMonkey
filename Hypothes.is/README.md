@@ -25,4 +25,4 @@ Browse to the URL you want to archive, then: right click on an empty place in th
 
 __or__
 
-Click on the Tampermonkey extension -> Perma.cc -> Save
+Click on the Tampermonkey extension -> Hypothes.is -> Save
