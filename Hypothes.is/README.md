@@ -14,7 +14,7 @@ Prerequisite
 Installation
 ------------
 
-Click [here](https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Hypothes.is/hypothesis.user.js) to install this script
+Click [here](https://raw.githubusercontent.com/kaerez/JSMonkey/main/Hypothes.is/hypothesis.user.js) to install this script
 
 <br>
 
