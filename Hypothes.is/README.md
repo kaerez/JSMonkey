@@ -21,8 +21,4 @@ Click [here](https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Hypothes
 Archiving a URL
 ---------------
 
-Browse to the URL you want to archive, then: right click on an empty place in the page -> Tampermonkey -> Hypothes.is -> Save
-
-__or__
-
-Click on the Tampermonkey extension -> Hypothes.is -> Save
+Browse to the URL you want to archive, then: right click on an empty place in the page -> Tampermonkey -> Hypothes.is
