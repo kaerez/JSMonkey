@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Insert Link
+// @name         Link It
 // @namespace    https://github.com/kaerez/JSMonkey
 // @version      1.1
 // @description  Insert link at the top of a page
