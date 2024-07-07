@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Link It
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.2
+// @version      1.3
 // @description  Insert link at the top of a page
 // @author       EK
 // @match        *://*/*
@@ -31,7 +31,7 @@ if (location.href.startsWith(URI)) {
 	var newHTML = document.createElement ('div');
 	newHTML.innerHTML = '<br><div style="background-color:red;font-size:1000%;text-align:center;"><a href='+tgt+'>'+name+'</a></div><br>';
 	//document.body.appendChild (newHTML);
-	document.body.insertBefore (newHTML, document.body.firstChild);}
+	document.body.insertBefore (newHTML, document.body.firstChild);
 }
 console.log("location.href.startsWith(URI): "+location.href.startsWith(URI))
 GM.registerMenuCommand("Reset and configure", setdata);
