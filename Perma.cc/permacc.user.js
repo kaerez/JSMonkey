@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Perma.cc
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.3
+// @version      1.4
 // @description  Perma.cc tools
 // @author       EK
 // @match        *://*/*
@@ -31,8 +31,37 @@ function downpermacc(){
     }
 }
 
+function getjson(){
+    var currentUrl = window.location.href;
+    var urlPattern = /^https?:\/\/(www\.)?perma\.cc\/([^?&/\\]*)/i;
+    var matches = currentUrl.match(urlPattern);
+
+    if (!matches || matches.length < 3) {
+        return; // Stop and do nothing if no valid fragment is found
+    } else {
+        location.href = 'https://api.perma.cc/v1/public/archives/'+matches[2];
+    }
+}
+
+function downapipermacc(){
+    var currentUrl = window.location.href;
+    var urlPattern = /^https?:\/\/(www\.)?perma\.cc\/([^?&/\\]*)/i;
+    var matches = currentUrl.match(urlPattern);
+
+    if (!matches || matches.length < 3) {
+        return; // Stop and do nothing if no valid fragment is found
+    } else {
+        location.href = 'https://api.perma.cc/v1/public/archives/'+matches[2]+'/download';
+    }
+}
+
+https://api.perma.cc/v1/public/archives/Y6JJ-TDUJ/download
+
 if (location.href.startsWith("https://perma.cc/")) {
     GM.registerMenuCommand("Download WARC Archive", downpermacc);
+    GM.registerMenuCommand("Get Record JSON via API", getjson);
+    GM.registerMenuCommand("Download WARC Archive via API", downapipermacc);
+
 }
 else {
     GM.registerMenuCommand("Save", savepermacc);
