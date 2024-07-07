@@ -32,7 +32,7 @@ Click on the Tampermonkey extension -> Perma.cc -> Save
 Downloading the WARC archive file
 ---------------------------------
 
-Browse to the [Perma.cc](https://perma.cc) saved page (e.g., `https://perma.cc/AAAA-BBBB`)\
+Browse to the [Perma.cc](https://perma.cc) saved page (e.g., [https://perma.cc/5BG8-YBF3](https://perma.cc/5BG8-YBF3))\
 Browse to the URL you want to archive, then: right click on an empty place in the page -> Tampermonkey -> Perma.cc -> Download WARC Archive
 
 __or__
