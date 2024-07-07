@@ -18,7 +18,8 @@ Click [here](https://raw.githubusercontent.com/kaerez/jsmonkey-pub/main/Hypothes
 
 <br>
 
-Archiving a URL
----------------
+Use
+---
 
-Browse to the URL you want to archive, then: right click on an empty place in the page -> Tampermonkey -> Hypothes.is
+Browse to the URL you want to use on, then: right click on an empty place in the page -> Tampermonkey -> Hypothes.is
+A special menu may appear on the Hypothes.is page with additional options.
