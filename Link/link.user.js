@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Link It
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.3.2
+// @version      1.3.3
 // @description  Insert link at the top of a page
 // @author       EK
 // @match        *://*/*
@@ -12,7 +12,6 @@
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Link/link.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Link/link.user.js
-// @run-at       document-start
 // @noframes
 // ==/UserScript==
 
@@ -34,7 +33,5 @@ if (location.href.startsWith(URI)) {
 	//document.body.appendChild (newHTML);
 	document.body.insertBefore (newHTML, document.body.firstChild);
 }
-console.log("location.href.startsWith(URI): "+location.href.startsWith(URI))
-console.log("location.href: "+location.href)
-console.log("URI: "+URI)
+
 GM.registerMenuCommand("Reset and configure", setdata);
