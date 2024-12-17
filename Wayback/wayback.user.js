@@ -5,21 +5,23 @@
 // @description  Wayback Tools
 // @author       EK
 // @match        *://*/*
+// @include      *
+// @noframes
 // @grant        GM_openInTab
 // @grant        GM_registerMenuCommand
-// @run-at       document-start
-// @noframes
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Wayback/wayback.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Wayback/wayback.user.js
 // ==/UserScript==
 
 function saveArchivetoday(){
-    GM_openInTab('https://archive.today/?run=1&url=' + document.location.href,true);
+//    GM_openInTab('https://archive.today/?run=1&url=' + document.location.href,true);
+      GM_openInTab('https://archive.ph/run=1&url=' + tgt,true);
 }
 
 function getArchivetoday(){
-    location.href = 'https://archive.today/newest/' + document.location.href;
+//    location.href = 'https://archive.today/newest/' + document.location.href;
+      location.href = 'https://archive.ph/newest/' + tgt;
     /*
 Each page has short url http://archive.is/XXXXX, where XXXXX is the unique indentfier of a page. Also, the page can be refered with urls like
   1.http://archive.is/2013/http://www.google.de/ - the newest snapshot in year 2013.
@@ -41,15 +43,15 @@ More questions and answers: http://blog.archive.is/archive
 }
 
 function googleCache(){
-    location.href = 'http://webcache.googleusercontent.com/search?q=cache:' + document.location.href;
+    location.href = 'http://webcache.googleusercontent.com/search?q=cache:' + tgt;
 }
 
 function getWayback(){
-    location.href = 'https://web.archive.org/web/2/' + document.location.href;
+    location.href = 'https://web.archive.org/web/2/' + tgt;
 }
 
 function saveWayback(){
-    GM_openInTab('https://web.archive.org/save/' + document.location.href,true);
+    GM_openInTab('https://web.archive.org/save/' + tgt,true);
 }
 
 function menuWayback(){
@@ -81,7 +83,6 @@ function orgWayback(){
 function imgWayback(){
     let url = location.href;
     let newUrl = url.replace(/(https:\/\/web\.archive\.org\/web\/\d{14})(\/.*)/, '$1im_$2');
-    location.href = newUrl;
     /*
     id_ Identity - perform no alterations of the original resource, return it as it was archived.
     js_ JavaScript - return document marked up as JavaScript.
@@ -91,11 +92,33 @@ function imgWayback(){
     */
 }
 
+
+let tgt;
+
+if (!location.href.toLowerCase().startsWith("http")) {
+    tgt = window.loadTimeDataRaw.reloadButton.reloadUrl;
+} else {
+    tgt = document.location.href;
+}
+
 if (location.href.startsWith("https://web.archive.org/web/")) {
     GM_registerMenuCommand("Wayback Remove Menu", menuWayback);
     GM_registerMenuCommand("Wayback Original View", orgWayback);
     GM_registerMenuCommand("Wayback Image View", imgWayback);
+}
+if (!location.href.startsWith("https://web.archive.org/web/")) {
+    GM.registerMenuCommand("Get Wayback", getWayback);
+    GM.registerMenuCommand("Save Wayback", saveWayback);
+    GM.registerMenuCommand("Get Google Cache", googleCache);
+    GM.registerMenuCommand("Get Archive Today", getArchivetoday);
+    GM.registerMenuCommand("Save Archive Today", saveArchivetoday);
+}
 
+/*
+if (location.href.startsWith("https://web.archive.org/web/")) {
+    GM_registerMenuCommand("Wayback Remove Menu", menuWayback);
+    GM_registerMenuCommand("Wayback Original View", orgWayback);
+    GM_registerMenuCommand("Wayback Image View", imgWayback);
 }
 else {
     GM.registerMenuCommand("Get Wayback", getWayback);
@@ -104,3 +127,5 @@ else {
     GM.registerMenuCommand("Get Archive Today", getArchivetoday);
     GM.registerMenuCommand("Save Archive Today", saveArchivetoday);
 }
+
+*/
