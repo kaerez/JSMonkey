@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hypothes.is
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.0
+// @version      1.1
 // @description  Hypothes.is tools
 // @author       EK
 // @match        *://*/*
