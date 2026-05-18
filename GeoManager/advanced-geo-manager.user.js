@@ -13,6 +13,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @run-at       document-start
+// @license      MIT
+// @copyright 2026, kaerez (https://openuserjs.org/users/kaerez)
 // ==/UserScript==
 
 (function() {
