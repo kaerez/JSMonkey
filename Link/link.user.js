@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Link It
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.3.3
+// @version      1.3.4
 // @description  Insert link at the top of a page
 // @author       EK
 // @match        *://*/*
@@ -13,6 +13,8 @@
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Link/link.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Link/link.user.js
 // @noframes
+// @license      MIT
+// @copyright 2026, kaerez (https://openuserjs.org/users/kaerez)
 // ==/UserScript==
 
 'use strict';
