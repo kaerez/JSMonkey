@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Advanced Geolocation Manager
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      4.5
+// @version      4.6
 // @description  Multi-profile async geolocation manager. Features file I/O, permission spoofing, and integrated diagnostics.
 // @author       EK
 // @match        *://*/*
@@ -13,7 +13,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @run-at       document-start
-// @license      MIT
+// @license      AGPL-3.0-or-later
 // @copyright 2026, kaerez (https://openuserjs.org/users/kaerez)
 // ==/UserScript==
 
