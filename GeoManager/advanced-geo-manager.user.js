@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Advanced Geolocation Manager
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      4.3
-// @description  Multi-profile async geolocation manager. Features file I/O, permission spoofing, and integrated diagnostics.
+// @version      4.4
+// @description  Multi-profile async geolocation manager. Features file I/O, TrustedTypes bypass, and instant TM registration.
 // @author       EK
 // @match        *://*/*
 // @supportURL   https://github.com/kaerez/JSMonkey
@@ -133,93 +133,127 @@
 
     // --- GUI Engine (Only in top frame) ---
     if (window.self === window.top) {
-        window.addEventListener('load', () => {
+        
+        let isGuiBuilt = false;
+        let openModalFunc = null;
+
+        // 1. Instantly register menu command bypassing all page load delays
+        GM_registerMenuCommand("📍 Advanced Geolocation Manager", () => {
+            if (!isGuiBuilt) buildGUI();
+            if (openModalFunc) openModalFunc();
+        });
+
+        // 2. Trusted Types Bypasser (Fixes crash on gemini.google.com)
+        let ttPolicy;
+        const setHTML = (el, htmlStr) => {
+            if (window.trustedTypes && window.trustedTypes.createPolicy) {
+                if (!ttPolicy) {
+                    try {
+                        ttPolicy = window.trustedTypes.createPolicy('geoSpooferPolicy_v4', { createHTML: (s) => s });
+                    } catch (e) {
+                        // Silent catch if domain blocks custom policy names
+                    }
+                }
+                el.innerHTML = ttPolicy ? ttPolicy.createHTML(htmlStr) : htmlStr;
+            } else {
+                el.innerHTML = htmlStr;
+            }
+        };
+
+        const buildGUI = () => {
+            if (isGuiBuilt || !document.body) return;
+            isGuiBuilt = true;
+
             const shadowHost = document.createElement('div');
             shadowHost.id = 'geospoof-manager-host';
             document.body.appendChild(shadowHost);
             const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
-            shadowRoot.innerHTML = `
-                <style>
-                    :host { all: initial; font-family: system-ui, -apple-system, sans-serif; direction: ltr; text-align: left; color: #333; }
-                    * { box-sizing: border-box; }
-                    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 999999; }
-                    .modal-content { width: 80vw; max-width: 850px; height: 80vh; background: #fff; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; }
-                    .header { padding: 20px; background: #f8f9fa; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
-                    .header h2 { margin: 0; font-size: 20px; }
-                    .body { padding: 20px; overflow-y: auto; flex-grow: 1; }
-                    .footer { padding: 15px 20px; border-top: 1px solid #ddd; background: #fafafa; display: flex; justify-content: flex-end; gap: 10px; }
-                    
-                    button { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity 0.2s; }
-                    button:hover { opacity: 0.8; }
-                    button:disabled { opacity: 0.5; cursor: not-allowed; }
-                    .btn-primary { background: #0056b3; color: white; }
-                    .btn-success { background: #28a745; color: white; }
-                    .btn-danger { background: #dc3545; color: white; }
-                    .btn-secondary { background: #6c757d; color: white; }
-                    .btn-info { background: #17a2b8; color: white; }
-                    .btn-outline { background: transparent; border: 1px solid #ccc; color: #333; }
+            const style = document.createElement('style');
+            style.textContent = `
+                :host { all: initial; font-family: system-ui, -apple-system, sans-serif; direction: ltr; text-align: left; color: #333; }
+                * { box-sizing: border-box; }
+                .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 999999; }
+                .modal-content { width: 80vw; max-width: 850px; height: 80vh; background: #fff; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; }
+                .header { padding: 20px; background: #f8f9fa; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+                .header h2 { margin: 0; font-size: 20px; }
+                .body { padding: 20px; overflow-y: auto; flex-grow: 1; }
+                .footer { padding: 15px 20px; border-top: 1px solid #ddd; background: #fafafa; display: flex; justify-content: flex-end; gap: 10px; }
+                
+                button { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity 0.2s; }
+                button:hover { opacity: 0.8; }
+                button:disabled { opacity: 0.5; cursor: not-allowed; }
+                .btn-primary { background: #0056b3; color: white; }
+                .btn-success { background: #28a745; color: white; }
+                .btn-danger { background: #dc3545; color: white; }
+                .btn-secondary { background: #6c757d; color: white; }
+                .btn-info { background: #17a2b8; color: white; }
+                .btn-outline { background: transparent; border: 1px solid #ccc; color: #333; }
 
-                    .profile-card { border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px; background: #fff; display: flex; justify-content: space-between; align-items: center; }
-                    .profile-info h3 { margin: 0 0 5px 0; display: flex; align-items: center; gap: 10px; }
-                    .profile-info p { margin: 0; font-size: 13px; color: #666; }
-                    .profile-actions { display: flex; gap: 8px; }
+                .profile-card { border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px; background: #fff; display: flex; justify-content: space-between; align-items: center; }
+                .profile-info h3 { margin: 0 0 5px 0; display: flex; align-items: center; gap: 10px; }
+                .profile-info p { margin: 0; font-size: 13px; color: #666; }
+                .profile-actions { display: flex; gap: 8px; }
 
-                    .form-group { margin-bottom: 15px; }
-                    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
-                    .form-control { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-                    select.form-control { background: #fff; }
-                    
-                    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-                    .param-row { display: flex; align-items: center; gap: 10px; border: 1px solid #eee; padding: 8px; border-radius: 4px; background: #fafafa; }
-                    .param-row label { flex: 1; margin: 0; font-weight: 500; }
-                    .param-row .unit { width: 60px; color: #666; font-size: 13px; }
-                    .param-row input[type="number"] { width: 100px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; }
-                    
-                    .rule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-                    .rule-row input[type="text"] { flex-grow: 1; }
+                .form-group { margin-bottom: 15px; }
+                .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+                .form-control { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+                select.form-control { background: #fff; }
+                
+                .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+                .param-row { display: flex; align-items: center; gap: 10px; border: 1px solid #eee; padding: 8px; border-radius: 4px; background: #fafafa; }
+                .param-row label { flex: 1; margin: 0; font-weight: 500; }
+                .param-row .unit { width: 60px; color: #666; font-size: 13px; }
+                .param-row input[type="number"] { width: 100px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; }
+                
+                .rule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+                .rule-row input[type="text"] { flex-grow: 1; }
 
-                    .syntax-help { font-size: 12px; color: #555; background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px; line-height: 1.5; }
-                    .syntax-help code { background: #d6d8db; padding: 2px 4px; border-radius: 3px; }
+                .syntax-help { font-size: 12px; color: #555; background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px; line-height: 1.5; }
+                .syntax-help code { background: #d6d8db; padding: 2px 4px; border-radius: 3px; }
 
-                    .toggle-switch { display: inline-flex; align-items: center; cursor: pointer; gap: 8px; }
-                    textarea { width: 100%; height: 300px; font-family: monospace; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none; }
+                .toggle-switch { display: inline-flex; align-items: center; cursor: pointer; gap: 8px; }
+                textarea { width: 100%; height: 300px; font-family: monospace; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none; }
 
-                    /* Diagnostic Styles */
-                    .results-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                    .result-pane { background: #f4f4f4; padding: 15px; border-radius: 5px; border: 1px solid #ddd; line-height: 1.6; }
-                    .result-pane h3 { margin-top: 0; padding-bottom: 8px; border-bottom: 1px solid #ddd; }
-                    .perm-badge { margin-bottom: 15px; font-size: 13px; padding: 8px; background: #fff; border: 1px solid #ddd; border-radius: 4px; }
-                    .text-error { color: #d9534f; line-height: 1.5; display: inline-block; }
-                    .error-box { background:#fff3cd; color:#856404; padding:10px; border-radius:4px; font-size:13px; border: 1px solid #ffeeba; }
+                .results-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                .result-pane { background: #f4f4f4; padding: 15px; border-radius: 5px; border: 1px solid #ddd; line-height: 1.6; }
+                .result-pane h3 { margin-top: 0; padding-bottom: 8px; border-bottom: 1px solid #ddd; }
+                .perm-badge { margin-bottom: 15px; font-size: 13px; padding: 8px; background: #fff; border: 1px solid #ddd; border-radius: 4px; }
+                .text-error { color: #d9534f; line-height: 1.5; display: inline-block; }
+                .error-box { background:#fff3cd; color:#856404; padding:10px; border-radius:4px; font-size:13px; border: 1px solid #ffeeba; }
 
-                    .context-menu { position: fixed; z-index: 999999; background: #fff; border: 1px solid #ccc; padding: 8px 12px; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.2); cursor: pointer; font-size: 14px; color: #333; transition: background 0.2s; }
-                    .context-menu:hover { background: #f0f0f0; }
-                </style>
-                <div class="modal-overlay" id="overlay">
-                    <div class="modal-content">
-                        <div class="header">
-                            <h2 id="modal-title">Advanced Geolocation Manager</h2>
-                            <button class="btn-outline" id="close-btn">✕ Close</button>
-                        </div>
-                        <div class="body" id="modal-body"></div>
-                        <div class="footer" id="modal-footer"></div>
-                    </div>
-                </div>
+                .context-menu { position: fixed; z-index: 999999; background: #fff; border: 1px solid #ccc; padding: 8px 12px; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,0.2); cursor: pointer; font-size: 14px; color: #333; transition: background 0.2s; }
+                .context-menu:hover { background: #f0f0f0; }
             `;
+            shadowRoot.appendChild(style);
 
-            const overlay = shadowRoot.getElementById('overlay');
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            
+            const content = document.createElement('div');
+            content.className = 'modal-content';
+            
+            setHTML(content, `
+                <div class="header">
+                    <h2 id="modal-title">Advanced Geolocation Manager</h2>
+                    <button class="btn-outline" id="close-btn">✕ Close</button>
+                </div>
+                <div class="body" id="modal-body"></div>
+                <div class="footer" id="modal-footer"></div>
+            `);
+            
+            overlay.appendChild(content);
+            shadowRoot.appendChild(overlay);
+
             const modalBody = shadowRoot.getElementById('modal-body');
             const modalFooter = shadowRoot.getElementById('modal-footer');
             const modalTitle = shadowRoot.getElementById('modal-title');
 
-            const openModal = () => { overlay.style.display = 'flex'; renderList(); };
+            openModalFunc = () => { overlay.style.display = 'flex'; renderList(); };
             const closeModal = () => { overlay.style.display = 'none'; };
             
             shadowRoot.getElementById('close-btn').addEventListener('click', closeModal);
             overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-
-            GM_registerMenuCommand("📍 Advanced Geolocation Manager", openModal);
 
             document.addEventListener('contextmenu', (e) => {
                 const existing = shadowRoot.getElementById('geo-context-menu');
@@ -228,11 +262,11 @@
                 const menu = document.createElement('div');
                 menu.id = 'geo-context-menu';
                 menu.className = 'context-menu';
-                menu.innerText = "📍 Advanced Geolocation Manager";
+                setHTML(menu, "📍 Advanced Geolocation Manager");
                 menu.style.top = `${e.clientY}px`;
                 menu.style.left = `${e.clientX + 10}px`;
 
-                menu.addEventListener('click', () => { menu.remove(); openModal(); });
+                menu.addEventListener('click', () => { menu.remove(); openModalFunc(); });
                 shadowRoot.appendChild(menu);
 
                 const cleanup = () => menu.remove();
@@ -243,7 +277,7 @@
 
             const renderList = () => {
                 modalTitle.innerText = "Geo Manager Profiles";
-                modalBody.innerHTML = `
+                setHTML(modalBody, `
                     <div style="margin-bottom: 20px; display: flex; gap: 10px;">
                         <button class="btn-primary" id="btn-add-profile">+ Add Profile</button>
                         <button class="btn-info" id="btn-diagnostics">📊 Run Diagnostics</button>
@@ -251,17 +285,17 @@
                         <button class="btn-secondary" id="btn-import-all">Import All</button>
                     </div>
                     <div id="profiles-container"></div>
-                `;
-                modalFooter.innerHTML = '';
+                `);
+                setHTML(modalFooter, '');
 
                 const container = shadowRoot.getElementById('profiles-container');
-                if (profiles.length === 0) container.innerHTML = `<p>No profiles found. Click "+ Add Profile" to begin.</p>`;
+                if (profiles.length === 0) setHTML(container, `<p>No profiles found. Click "+ Add Profile" to begin.</p>`);
 
                 profiles.forEach((p, index) => {
                     const activeRuleCount = p.rules.filter(r => r.enabled).length;
                     const el = document.createElement('div');
                     el.className = 'profile-card';
-                    el.innerHTML = `
+                    setHTML(el, `
                         <div class="profile-info">
                             <h3>
                                 <input type="checkbox" class="profile-toggle" data-idx="${index}" ${p.enabled ? 'checked' : ''} title="Enable/Disable Profile">
@@ -274,7 +308,7 @@
                             <button class="btn-outline btn-export" data-idx="${index}">Export</button>
                             <button class="btn-danger btn-delete" data-idx="${index}">Delete</button>
                         </div>
-                    `;
+                    `);
                     container.appendChild(el);
                 });
 
@@ -283,28 +317,10 @@
                 shadowRoot.getElementById('btn-export-all').onclick = () => renderImportExport(null, 'export');
                 shadowRoot.getElementById('btn-import-all').onclick = () => renderImportExport(null, 'import');
 
-                container.querySelectorAll('.profile-toggle').forEach(chk => {
-                    chk.onchange = (e) => { 
-                        profiles[e.target.dataset.idx].enabled = e.target.checked; 
-                        saveProfiles(); 
-                    };
-                });
-                
-                container.querySelectorAll('.btn-edit').forEach(btn => {
-                    btn.onclick = (e) => renderEdit(e.target.dataset.idx);
-                });
-                
-                container.querySelectorAll('.btn-export').forEach(btn => {
-                    btn.onclick = (e) => renderImportExport(e.target.dataset.idx, 'export');
-                });
-                
-                container.querySelectorAll('.btn-delete').forEach(btn => {
-                    btn.onclick = (e) => { 
-                        profiles.splice(e.target.dataset.idx, 1); 
-                        saveProfiles(); 
-                        renderList(); 
-                    };
-                });
+                container.querySelectorAll('.profile-toggle').forEach(chk => { chk.onchange = (e) => { profiles[e.target.dataset.idx].enabled = e.target.checked; saveProfiles(); }; });
+                container.querySelectorAll('.btn-edit').forEach(btn => { btn.onclick = (e) => renderEdit(e.target.dataset.idx); });
+                container.querySelectorAll('.btn-export').forEach(btn => { btn.onclick = (e) => renderImportExport(e.target.dataset.idx, 'export'); });
+                container.querySelectorAll('.btn-delete').forEach(btn => { btn.onclick = (e) => { profiles.splice(e.target.dataset.idx, 1); saveProfiles(); renderList(); }; });
             };
 
             const renderEdit = (index) => {
@@ -332,7 +348,7 @@
                     </div>
                 `;
 
-                modalBody.innerHTML = `
+                setHTML(modalBody, `
                     <div class="form-group" style="display: flex; gap: 15px;">
                         <div style="flex-grow: 1;">
                             <label>Profile Name</label>
@@ -380,7 +396,7 @@
                             • <code>*://*.example.com/*</code> (Matches HTTP/HTTPS and any subdomain. Does NOT match https://example.com)
                         </div>
                     </div>
-                `;
+                `);
 
                 shadowRoot.getElementById('btn-fetch-real').onclick = (e) => {
                     const btn = e.target;
@@ -426,33 +442,27 @@
 
                 const rulesList = shadowRoot.getElementById('rules-list');
                 const renderRules = () => {
-                    rulesList.innerHTML = '';
+                    setHTML(rulesList, '');
                     p.rules.forEach((r, i) => {
                         const row = document.createElement('div');
                         row.className = 'rule-row';
-                        row.innerHTML = `
+                        setHTML(row, `
                             <input type="checkbox" class="rule-enable" data-idx="${i}" ${r.enabled ? 'checked' : ''} title="Enable Rule">
                             <input type="text" class="form-control rule-pattern" data-idx="${i}" value="${r.pattern}">
                             <button class="btn-danger btn-del-rule" data-idx="${i}">✕</button>
-                        `;
+                        `);
                         rulesList.appendChild(row);
                     });
                     
-                    rulesList.querySelectorAll('.rule-enable').forEach(el => {
-                        el.onchange = e => { p.rules[e.target.dataset.idx].enabled = e.target.checked; };
-                    });
-                    rulesList.querySelectorAll('.rule-pattern').forEach(el => {
-                        el.oninput = e => { p.rules[e.target.dataset.idx].pattern = e.target.value; };
-                    });
-                    rulesList.querySelectorAll('.btn-del-rule').forEach(el => {
-                        el.onclick = e => { p.rules.splice(e.target.dataset.idx, 1); renderRules(); };
-                    });
+                    rulesList.querySelectorAll('.rule-enable').forEach(el => { el.onchange = e => { p.rules[e.target.dataset.idx].enabled = e.target.checked; }; });
+                    rulesList.querySelectorAll('.rule-pattern').forEach(el => { el.oninput = e => { p.rules[e.target.dataset.idx].pattern = e.target.value; }; });
+                    rulesList.querySelectorAll('.btn-del-rule').forEach(el => { el.onclick = e => { p.rules.splice(e.target.dataset.idx, 1); renderRules(); }; });
                 };
                 renderRules();
                 
                 shadowRoot.getElementById('btn-add-rule').onclick = () => { p.rules.push({ pattern: "*://*/*", enabled: true }); renderRules(); };
 
-                modalFooter.innerHTML = `<button class="btn-outline" id="btn-cancel">Cancel</button><button class="btn-success" id="btn-save">Save Profile</button>`;
+                setHTML(modalFooter, `<button class="btn-outline" id="btn-cancel">Cancel</button><button class="btn-success" id="btn-save">Save Profile</button>`);
 
                 shadowRoot.getElementById('btn-cancel').onclick = renderList;
                 shadowRoot.getElementById('btn-save').onclick = () => {
@@ -479,14 +489,14 @@
             const renderDiagnostic = async () => {
                 modalTitle.innerText = "Geolocation Diagnostics";
                 
-                modalBody.innerHTML = `
+                setHTML(modalBody, `
                     <p style="margin-top:0; color:#666;">Comparing Native Hardware API vs Currently Active Spoofed Profile on this domain.</p>
                     <div class="results-container">
                         <div id="unspoofed-pane" class="result-pane"><h3>Unspoofed (Native)</h3><p><em>Loading... (Awaiting hardware)</em></p></div>
                         <div id="spoofed-pane" class="result-pane"><h3>Spoofed (Mocked)</h3><p><em>Loading...</em></p></div>
                     </div>
-                `;
-                modalFooter.innerHTML = `<button class="btn-outline" id="btn-back">← Back to Profiles</button>`;
+                `);
+                setHTML(modalFooter, `<button class="btn-outline" id="btn-back">← Back to Profiles</button>`);
                 shadowRoot.getElementById('btn-back').onclick = renderList;
 
                 const unspooofedPane = shadowRoot.getElementById('unspoofed-pane');
@@ -502,14 +512,14 @@
                 }
 
                 const nativeData = await fetchGeoAsync(nativeGetCurrentPosition);
-                unspooofedPane.innerHTML = `<h3>Unspoofed (Native)</h3>${permStatusHtml}${nativeData}`;
+                setHTML(unspooofedPane, `<h3>Unspoofed (Native)</h3>${permStatusHtml}${nativeData}`);
                 
                 const mockedPermState = activeProfile ? activeProfile.permissionState : 'UNMATCHED (Native)';
                 const spoofColor = mockedPermState === 'granted' ? '#28a745' : (mockedPermState === 'denied' ? '#dc3545' : '#fd7e14');
                 const mockPermStatusHtml = `<div class="perm-badge"><strong>Mocked Permission State:</strong> <span style="color: ${spoofColor}; font-weight: bold; text-transform: uppercase;">${mockedPermState}</span></div>`;
 
                 const spoofedData = await fetchGeoAsync(targetWindow.navigator.geolocation.getCurrentPosition.bind(targetWindow.navigator.geolocation));
-                spoofedPane.innerHTML = `<h3>Spoofed (Mocked)</h3>${mockPermStatusHtml}${spoofedData}`;
+                setHTML(spoofedPane, `<h3>Spoofed (Mocked)</h3>${mockPermStatusHtml}${spoofedData}`);
             };
 
             const renderImportExport = (index, mode) => {
@@ -518,12 +528,12 @@
                 
                 let outputStr = mode === 'export' ? JSON.stringify(isSingle ? [profiles[index]] : profiles, null, 2) : "";
 
-                modalBody.innerHTML = `
+                setHTML(modalBody, `
                     <p style="margin-top:0; color:#666;">${mode === 'export' ? 'Copy or download the JSON below:' : 'Paste your JSON array or upload a file to import:'}</p>
                     <textarea id="io-textarea" ${mode === 'export' ? 'readonly' : ''}>${outputStr}</textarea>
-                `;
+                `);
 
-                modalFooter.innerHTML = `
+                setHTML(modalFooter, `
                     <button class="btn-outline" id="btn-cancel">Cancel</button>
                     ${mode === 'export' 
                         ? `<button class="btn-primary" id="btn-copy">Copy to Clipboard</button>
@@ -531,7 +541,7 @@
                         : `<input type="file" id="file-import" accept=".json" style="display:none;">
                            <button class="btn-primary" id="btn-browse" onclick="document.getElementById('geospoof-manager-host').shadowRoot.getElementById('file-import').click()">Browse File...</button>
                            <button class="btn-success" id="btn-import">Apply Import</button>`}
-                `;
+                `);
 
                 shadowRoot.getElementById('btn-cancel').onclick = renderList;
                 
@@ -554,9 +564,7 @@
                         const file = e.target.files[0];
                         if (!file) return;
                         const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            shadowRoot.getElementById('io-textarea').value = ev.target.result;
-                        };
+                        reader.onload = (ev) => { shadowRoot.getElementById('io-textarea').value = ev.target.result; };
                         reader.readAsText(file);
                     };
 
@@ -572,6 +580,15 @@
                     };
                 }
             };
-        });
+
+            // 3. Mount UI if DOM is ready, otherwise wait for it
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', buildGUI);
+            } else {
+                buildGUI();
+            }
+        };
+
+        init();
     }
 })();
