@@ -7,6 +7,7 @@ Useful JS monkey scripts (e.g. [Tampermonkey](https://www.tampermonkey.net/) / g
 
 <br>
 
+[Advanced Geolocation Manager](/GeoManager/README.md)<br>
 [Perma.cc](/Perma.cc/README.md)<br>
 [Wayback](/Wayback/README.md)<br>
 [Hypothes.is](/Hypothes.is/README.md)<br>
