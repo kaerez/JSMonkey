@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wayback Tools
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.0
+// @version      1.1
 // @description  Wayback Tools
 // @author       EK
 // @match        *://*/*
@@ -12,6 +12,8 @@
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Wayback/wayback.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Wayback/wayback.user.js
+// @license      MIT
+// @copyright 2026, kaerez (https://openuserjs.org/users/kaerez)
 // ==/UserScript==
 
 function saveArchivetoday(){
