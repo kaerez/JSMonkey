@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hypothes.is
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.1
+// @version      1.2
 // @description  Hypothes.is tools
 // @author       EK
 // @match        *://*/*
@@ -12,7 +12,7 @@
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Hypothes.is/hypothesis.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Hypothes.is/hypothesis.user.js
-// @license      MIT
+// @license      AGPL-3.0-or-later
 // @copyright 2026, kaerez (https://openuserjs.org/users/kaerez)
 // ==/UserScript==
 
