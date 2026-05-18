@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Advanced Geolocation Manager
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      4.4
-// @description  Multi-profile async geolocation manager. Features file I/O, TrustedTypes bypass, and instant TM registration.
+// @version      4.5
+// @description  Multi-profile async geolocation manager. Features file I/O, permission spoofing, and integrated diagnostics.
 // @author       EK
 // @match        *://*/*
 // @supportURL   https://github.com/kaerez/JSMonkey
@@ -137,22 +137,11 @@
         let isGuiBuilt = false;
         let openModalFunc = null;
 
-        // 1. Instantly register menu command bypassing all page load delays
-        GM_registerMenuCommand("📍 Advanced Geolocation Manager", () => {
-            if (!isGuiBuilt) buildGUI();
-            if (openModalFunc) openModalFunc();
-        });
-
-        // 2. Trusted Types Bypasser (Fixes crash on gemini.google.com)
         let ttPolicy;
         const setHTML = (el, htmlStr) => {
             if (window.trustedTypes && window.trustedTypes.createPolicy) {
                 if (!ttPolicy) {
-                    try {
-                        ttPolicy = window.trustedTypes.createPolicy('geoSpooferPolicy_v4', { createHTML: (s) => s });
-                    } catch (e) {
-                        // Silent catch if domain blocks custom policy names
-                    }
+                    try { ttPolicy = window.trustedTypes.createPolicy('geoSpooferPolicy_v4', { createHTML: (s) => s }); } catch (e) {}
                 }
                 el.innerHTML = ttPolicy ? ttPolicy.createHTML(htmlStr) : htmlStr;
             } else {
@@ -255,26 +244,6 @@
             shadowRoot.getElementById('close-btn').addEventListener('click', closeModal);
             overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-            document.addEventListener('contextmenu', (e) => {
-                const existing = shadowRoot.getElementById('geo-context-menu');
-                if (existing) existing.remove();
-
-                const menu = document.createElement('div');
-                menu.id = 'geo-context-menu';
-                menu.className = 'context-menu';
-                setHTML(menu, "📍 Advanced Geolocation Manager");
-                menu.style.top = `${e.clientY}px`;
-                menu.style.left = `${e.clientX + 10}px`;
-
-                menu.addEventListener('click', () => { menu.remove(); openModalFunc(); });
-                shadowRoot.appendChild(menu);
-
-                const cleanup = () => menu.remove();
-                document.addEventListener('click', cleanup, { once: true });
-                document.addEventListener('scroll', cleanup, { once: true });
-                setTimeout(() => { if (shadowRoot.contains(menu)) menu.remove(); }, 3000);
-            });
-
             const renderList = () => {
                 modalTitle.innerText = "Geo Manager Profiles";
                 setHTML(modalBody, `
@@ -318,8 +287,8 @@
                 shadowRoot.getElementById('btn-import-all').onclick = () => renderImportExport(null, 'import');
 
                 container.querySelectorAll('.profile-toggle').forEach(chk => { chk.onchange = (e) => { profiles[e.target.dataset.idx].enabled = e.target.checked; saveProfiles(); }; });
-                container.querySelectorAll('.btn-edit').forEach(btn => { btn.onclick = (e) => renderEdit(e.target.dataset.idx); });
-                container.querySelectorAll('.btn-export').forEach(btn => { btn.onclick = (e) => renderImportExport(e.target.dataset.idx, 'export'); });
+                container.querySelectorAll('.btn-edit').forEach(btn => { btn.onclick = (e) => { renderEdit(e.target.dataset.idx); }; });
+                container.querySelectorAll('.btn-export').forEach(btn => { btn.onclick = (e) => { renderImportExport(e.target.dataset.idx, 'export'); }; });
                 container.querySelectorAll('.btn-delete').forEach(btn => { btn.onclick = (e) => { profiles.splice(e.target.dataset.idx, 1); saveProfiles(); renderList(); }; });
             };
 
@@ -580,15 +549,44 @@
                     };
                 }
             };
-
-            // 3. Mount UI if DOM is ready, otherwise wait for it
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', buildGUI);
-            } else {
-                buildGUI();
-            }
         };
 
-        init();
+        const executeOpenRequest = () => {
+            if (!isGuiBuilt) buildGUI();
+            if (openModalFunc) openModalFunc();
+        };
+
+        GM_registerMenuCommand("📍 Advanced Geolocation Manager", executeOpenRequest);
+
+        document.addEventListener('contextmenu', (e) => {
+            if (!isGuiBuilt) buildGUI();
+            const host = document.getElementById('geospoof-manager-host');
+            if (!host || !host.shadowRoot) return;
+            const shadowRoot = host.shadowRoot;
+
+            const existing = shadowRoot.getElementById('geo-context-menu');
+            if (existing) existing.remove();
+
+            const menu = document.createElement('div');
+            menu.id = 'geo-context-menu';
+            menu.className = 'context-menu';
+            setHTML(menu, "📍 Advanced Geolocation Manager");
+            menu.style.top = `${e.clientY}px`;
+            menu.style.left = `${e.clientX + 10}px`;
+
+            menu.addEventListener('click', () => { menu.remove(); executeOpenRequest(); });
+            shadowRoot.appendChild(menu);
+
+            const cleanup = () => menu.remove();
+            document.addEventListener('click', cleanup, { once: true });
+            document.addEventListener('scroll', cleanup, { once: true });
+            setTimeout(() => { if (shadowRoot.contains(menu)) menu.remove(); }, 3000);
+        });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', buildGUI);
+        } else {
+            buildGUI();
+        }
     }
 })();
