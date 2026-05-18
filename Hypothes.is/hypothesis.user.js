@@ -12,6 +12,8 @@
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Hypothes.is/hypothesis.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Hypothes.is/hypothesis.user.js
+// @license      MIT
+// @copyright 2026, kaerez (https://openuserjs.org/users/kaerez)
 // ==/UserScript==
 
 
