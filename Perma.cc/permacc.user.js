@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Perma.cc
 // @namespace    https://github.com/kaerez/JSMonkey
-// @version      1.4
+// @version      1.5
 // @description  Perma.cc tools
 // @author       EK
 // @match        *://*/*
@@ -12,6 +12,8 @@
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/Perma.cc/permacc.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/Perma.cc/permacc.user.js
+// @license      MIT
+// @copyright 2026, kaerez (https://openuserjs.org/users/kaerez)
 // ==/UserScript==
 
 
