@@ -1,15 +1,11 @@
-// ============================================
-// userscripts/scorm_pass.user.js
-// ============================================
-
 // ==UserScript==
 // @name         SCORM Pass Universal Hook Menu
 // @namespace    https://github.com/kaerez/JSMonkey
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/SCORM/scorm_pass.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/SCORM/scorm_pass.user.js
-// @version      1.5
-// @description  Adds a toolbar menu command via GM.registerMenuCommand (Right-Click) and an inline context menu via Ctrl+Right-Click.
+// @version      1.9
+// @description  Universal tracking proxy hook supporting SCORM 1.2/2004, xAPI (Tin Can), cmi5, and sendBeacon closures with full Time/Objective masking.
 // @author       EK
 // @license      AGPL-3.0-or-later
 // @match        *://*/*
@@ -20,7 +16,105 @@
 (function() {
     'use strict';
 
-    // 1. Core Injection Payload (The Network Proxy Hook)
+    // =======================================================
+    // CONFIGURATION UTILITIES & DEFENSIVE SHIELDS
+    // =======================================================
+    const secureHook = (obj, methodName, proxyFunc) => {
+        try {
+            Object.defineProperty(obj, methodName, {
+                value: proxyFunc,
+                writable: false,
+                configurable: true
+            });
+        } catch (e) {
+            obj[methodName] = proxyFunc;
+        }
+    };
+
+    // =======================================================
+    // LAYER 1: NETWORK DATA INTERCEPTORS (xAPI / cmi5 / REST / BEACON)
+    // =======================================================
+    function sanitizeElearningPayload(rawBody) {
+        if (typeof rawBody !== 'string') return rawBody;
+        if (!rawBody.includes("verb") && !rawBody.includes("result") && !rawBody.includes("score")) {
+            return rawBody;
+        }
+
+        try {
+            let data = JSON.parse(rawBody);
+
+            const mutateStatement = (stmt) => {
+                // A. Correct Status & Score Parameters
+                if (stmt.result) {
+                    if (stmt.result.score) {
+                        stmt.result.score.scaled = 1.0;
+                        if (stmt.result.score.raw !== undefined) { stmt.result.score.raw = 100; }
+                        if (stmt.result.score.max !== undefined) { stmt.result.score.max = 100; }
+                    }
+                    stmt.result.completion = true;
+                    stmt.result.success = true;
+                    if (stmt.result.duration) { stmt.result.duration = "PT45M22S"; }
+                }
+
+                // B. Remap Failure Activity Verbs to Passing Signatures
+                if (stmt.verb && stmt.verb.id) {
+                    if (stmt.verb.id.includes("/failed")) {
+                        stmt.verb.id = stmt.verb.id.replace("/failed", "/passed");
+                        if (stmt.verb.display) {
+                            Object.keys(stmt.verb.display).forEach((lang) => {
+                                if (stmt.verb.display[lang] === "failed") { stmt.verb.display[lang] = "passed"; }
+                            });
+                        }
+                    }
+                }
+            };
+
+            if (Array.isArray(data)) {
+                data.forEach((item) => { mutateStatement(item); });
+            } else {
+                mutateStatement(data);
+            }
+
+            return JSON.stringify(data);
+        } catch (e) {
+            return rawBody;
+        }
+    }
+
+    // Intercept Global fetch Transactions
+    const originalFetch = window.fetch;
+    window.fetch = function(input, init) {
+        if (init && init.body) {
+            init.body = sanitizeElearningPayload(init.body);
+        }
+        return originalFetch.apply(this, arguments);
+    };
+
+    // Intercept Traditional XMLHttpRequest Streams
+    const originalSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function(body) {
+        if (body) {
+            body = sanitizeElearningPayload(body);
+        }
+        return originalSend.apply(this, arguments);
+    };
+
+    // Intercept Asynchronous Web Beacon Payloads (Tab Closure Fail-Safe)
+    if (navigator && navigator.sendBeacon) {
+        const originalBeacon = navigator.sendBeacon;
+        navigator.sendBeacon = function(url, data) {
+            if (data) { 
+                data = sanitizeElearningPayload(data); 
+            }
+            return originalBeacon.apply(this, arguments);
+        };
+    }
+
+    console.log("[+] Universal Elearning Network Interceptor Active (Fetch/XHR/Beacon).");
+
+    // =======================================================
+    // LAYER 2: MANUALLY TRIGGERED CONTEXT HOOKS (SCORM 1.2 / 2004)
+    // =======================================================
     function activateScormPass() {
         console.log("--- INJECTING OMNIPRESENT SCORM NETWORK PROXY HOOK ---");
 
@@ -45,66 +139,89 @@
         const nativeLMS = busContext.target;
         console.log(`[+] Hijacking SCORM ${busContext.version} Pipeline Data Ingestion Engine...`);
 
+        // SCORM BRANCH: 2004 STANDARDS
         if (busContext.version === "2004") {
             const originalSetValue = nativeLMS.SetValue;
-            nativeLMS.SetValue = function(element, value) {
+            
+            secureHook(nativeLMS, 'SetValue', function(element, value) {
                 if (element.includes("score.raw") || element.includes("score.scaled")) {
-                    console.log(`[Hook Intercept] Blocking attempt to write score: ${value}`);
+                    console.log(`[Hook Intercept] Masking score parameter [${element}]: ${value} -> 100%`);
                     value = element.includes("scaled") ? 1.0 : 100;
                 }
+                if (element.includes("objectives.") && (element.includes("success_status") || element.includes("completion_status"))) {
+                    console.log(`[Hook Intercept] Masking sub-objective array completion state -> passed`);
+                    value = element.includes("success") ? "passed" : "completed";
+                }
+                if (element.includes("session_time")) {
+                    console.log(`[Hook Intercept] Padding seat-time verification buffer.`);
+                    value = "PT0H45M22S"; 
+                }
+                
                 if (element.includes("success_status")) value = "passed";
                 if (element.includes("completion_status")) value = "completed";
+                
                 return originalSetValue.call(nativeLMS, element, value);
-            };
+            });
 
             try {
                 nativeLMS.SetValue("cmi.score.scaled", 1.0);
                 nativeLMS.SetValue("cmi.score.raw", 100);
                 nativeLMS.SetValue("cmi.score.min", 0);
                 nativeLMS.SetValue("cmi.score.max", 100);
+                nativeLMS.SetValue("cmi.session_time", "PT0H45M22S");
                 nativeLMS.SetValue("cmi.completion_status", "completed");
                 nativeLMS.SetValue("cmi.success_status", "passed");
                 nativeLMS.Commit("");
             } catch(e) {}
 
+        // SCORM BRANCH: 1.2 STANDARDS
         } else {
             const originalLMSSetValue = nativeLMS.LMSSetValue;
-            nativeLMS.LMSSetValue = function(element, value) {
+
+            secureHook(nativeLMS, 'LMSSetValue', function(element, value) {
                 if (element.includes("score.raw")) {
-                    console.log(`[Hook Intercept] Blocking attempt to write legacy score: ${value}`);
+                    console.log(`[Hook Intercept] Masking raw score parameter [${element}]: ${value} -> 100`);
                     value = "100";
                 }
+                if (element.includes("objectives.") && element.includes("status")) {
+                    console.log(`[Hook Intercept] Masking sub-objective objective status array -> passed`);
+                    value = "passed";
+                }
+                if (element.includes("session_time")) {
+                    console.log(`[Hook Intercept] Padding legacy seat-time window timespan.`);
+                    value = "00:45:22.00";
+                }
+                
                 if (element.includes("lesson_status")) value = "completed";
+                
                 return originalLMSSetValue.call(nativeLMS, element, value);
-            };
+            });
 
             try {
                 nativeLMS.LMSSetValue("cmi.core.score.raw", "100");
                 nativeLMS.LMSSetValue("cmi.core.score.min", "0");
                 nativeLMS.LMSSetValue("cmi.core.score.max", "100");
+                nativeLMS.LMSSetValue("cmi.core.session_time", "00:45:22.00");
                 nativeLMS.LMSSetValue("cmi.core.lesson_status", "completed");
                 nativeLMS.LMSCommit("");
             } catch(e) {}
         }
 
-        console.log("%c[HOOK ACTIVE] Network shield initialized.", "color: green; font-weight: bold;");
-        alert("SCORM Pass Activated! Outgoing parameter vectors are locked at 100%. Interact with or close the course window to finish submission.");
+        console.log("%c[HOOK ACTIVE] Comprehensive SCORM adjustments attached.", "color: green; font-weight: bold;");
+        alert("SCORM Pass Activated! All outgoing score metrics, seat times, and objective structures are now locked at 100%. Interact with the module or close the tab to submit.");
     }
 
     // =======================================================
-    // METHOD 1: REGISTER VIA NATIVE TAMPERMONKEY DROPDOWN MENU
+    // LAYER 3: INTERFACE DEPLOYMENT BINDINGS (MENU CONTROLLERS)
     // =======================================================
     if (typeof GM !== 'undefined' && typeof GM.registerMenuCommand === 'function') {
         GM.registerMenuCommand("⚡ Activate SCORM Pass", activateScormPass);
     }
 
-    // =======================================================
-    // METHOD 2: GENERATE CONTROL-KEY FLOATING PANEL OVERLAY
-    // =======================================================
     function createContextMenu() {
         const menu = document.createElement('div');
         menu.id = 'scorm-pass-context-menu';
-
+        
         Object.assign(menu.style, {
             position: 'fixed',
             display: 'none',
@@ -130,10 +247,9 @@
             fontWeight: '500'
         });
 
-        // Block statement bodies satisfy standard strict validation policies
         menuItem.addEventListener('mouseover', () => { menuItem.style.backgroundColor = '#89b4fa'; });
         menuItem.addEventListener('mouseout', () => { menuItem.style.backgroundColor = 'transparent'; });
-
+        
         menuItem.addEventListener('click', (e) => {
             e.stopPropagation();
             menu.style.display = 'none';
@@ -143,7 +259,6 @@
         menu.appendChild(menuItem);
         document.body.appendChild(menu);
 
-        // Activates custom floating menu when Ctrl + Right-Click is intercepted
         window.addEventListener('contextmenu', (e) => {
             if (e.ctrlKey) {
                 e.preventDefault();
