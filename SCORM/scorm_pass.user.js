@@ -8,8 +8,8 @@
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/SCORM/scorm_pass.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/SCORM/scorm_pass.user.js
-// @version      5.1
-// @description  Universal eLearning pass hook: SCORM 1.2/2004, xAPI, cmi5, AICC, Udutu, BSI, Articulate, Captivate, Lectora, Moodle, Canvas, H5P, D2L, Teachable, Cybrary, EC-Council (iClass/CodeRed). Persistent re-hooking, HTML5 video completion.
+// @version      5.2
+// @description  Universal eLearning pass hook: SCORM 1.2/2004, xAPI, cmi5, AICC, Udutu, BSI, Articulate, Captivate, Lectora, Moodle, Canvas, H5P, D2L, Teachable, Cybrary, EC-Council (iClass/CodeRed). Persistent re-hooking, HTML5 video, Vimeo, Wistia.
 // @author       EK
 // @license      AGPL-3.0-or-later
 // @match        *://*/*
@@ -19,6 +19,9 @@
 
 (function() {
     'use strict';
+
+    // Re-dispatch guard for Vimeo postMessage interception
+    let _vimeoMsgIntercepting = false;
 
     // =======================================================
     // UTILITY: DEFENSIVE PROPERTY HOOK
@@ -477,7 +480,7 @@
     // Passive: intercept future API assignments on the current window
     interceptApiAssignment(window, () => "completed");
 
-    console.log("[+] Universal eLearning Network Interceptor Active (v5.1).");
+    console.log("[+] Universal eLearning Network Interceptor Active (v5.2).");
 
     // =======================================================
     // LAYER 4A: postMessage CROSS-FRAME INTERCEPTOR
@@ -827,6 +830,138 @@
         console.log("[+] L6A: Video completion hook active.");
     }
 
+
+    // =======================================================
+    // LAYER 6B: EMBEDDED VIDEO PLAYERS — VIMEO + WISTIA
+    // Covers platforms embedding third-party video players:
+    // Teachable, Thinkific (Vimeo), HubSpot Academy (Wistia).
+    // NOT passive — activated on user trigger only.
+    // =======================================================
+    function activateVimeoCompletion() {
+        // --- A. postMessage interception ---
+        // Capture-phase listener rewrites Vimeo timeupdate messages to
+        // report 100% progress before the platform's own handlers fire.
+        if (!window.__scormPassVimeoMsgHooked) {
+            window.__scormPassVimeoMsgHooked = true;
+
+            window.addEventListener('message', function(e) {
+                if (_vimeoMsgIntercepting || !e.data || typeof e.data !== 'string') return;
+                if (!/vimeo\.com/i.test(e.origin)) return;
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.event === 'timeupdate' && d.data && d.data.duration > 0) {
+                        d.data.percent = 1.0;
+                        d.data.seconds = d.data.duration;
+                        e.stopImmediatePropagation();
+                        _vimeoMsgIntercepting = true;
+                        try {
+                            window.dispatchEvent(new MessageEvent('message', {
+                                data:   JSON.stringify(d),
+                                origin: e.origin,
+                                source: e.source
+                            }));
+                        } finally {
+                            _vimeoMsgIntercepting = false;
+                        }
+                    }
+                } catch(err) {}
+            }, true); // capture phase — fires before platform handlers
+
+            console.log('[+] L6B: Vimeo postMessage hook installed.');
+        }
+
+        // --- B. Direct iframe seek commands ---
+        // Sends setCurrentTime with a very large value; Vimeo clamps to duration.
+        document.querySelectorAll(
+            'iframe[src*="vimeo.com"], iframe[src*="player.vimeo"]'
+        ).forEach(iframe => {
+            try {
+                iframe.contentWindow.postMessage(
+                    JSON.stringify({ method: 'setCurrentTime', value: 99999 }),
+                    'https://player.vimeo.com'
+                );
+            } catch(e) {}
+        });
+
+        // --- C. Vimeo Player SDK hook ---
+        // If the Vimeo Player SDK is loaded, proxy the constructor to
+        // auto-seek each new player instance to its end.
+        try {
+            if (window.Vimeo && window.Vimeo.Player && !window.Vimeo.Player.__scormPassHooked) {
+                const _Orig = window.Vimeo.Player;
+
+                function VimeoPlayerProxy(...args) {
+                    const player = new _Orig(...args);
+                    player.ready()
+                        .then(() => player.getDuration())
+                        .then(dur => { if (dur > 0) return player.setCurrentTime(dur - 0.1); })
+                        .catch(() => {});
+                    return player; // returning object from constructor uses it as result
+                }
+
+                VimeoPlayerProxy.prototype          = _Orig.prototype;
+                VimeoPlayerProxy.__scormPassHooked  = true;
+                // Copy static properties
+                Object.keys(_Orig).forEach(k => {
+                    try { VimeoPlayerProxy[k] = _Orig[k]; } catch(e) {}
+                });
+                window.Vimeo.Player = VimeoPlayerProxy;
+                console.log('[+] L6B: Vimeo SDK constructor proxy installed.');
+            }
+        } catch(e) {}
+
+        console.log('[+] L6B: Vimeo completion activated.');
+    }
+
+    function activateWistiaCompletion() {
+        // --- A. _wq queue push ---
+        // _wq is Wistia's async command queue; works for already-loaded
+        // and future players. id:'_all' targets every player on the page.
+        window._wq = window._wq || [];
+        window._wq.push({
+            id: '_all',
+            onReady: function(video) {
+                try {
+                    const dur = video.duration();
+                    if (!dur || dur <= 0) return;
+
+                    video.time(dur); // seek to absolute end
+
+                    // Override percentWatched() to always report 1.0
+                    // so any platform check sees full completion
+                    if (typeof video.percentWatched === 'function') {
+                        video.percentWatched = function() { return 1.0; };
+                    }
+
+                    console.log('[L6B] Wistia video forced to 100%.');
+                } catch(e) {}
+            }
+        });
+
+        // --- B. Existing player handles ---
+        // Walk _initializers if Wistia global is available
+        try {
+            if (window.Wistia && typeof window.Wistia.api === 'function') {
+                const handles = window.Wistia._initializers || [];
+                handles.forEach(handle => {
+                    try {
+                        const player = window.Wistia.api(handle);
+                        if (!player) return;
+                        const dur = player.duration();
+                        if (dur > 0) {
+                            player.time(dur);
+                            if (typeof player.percentWatched === 'function') {
+                                player.percentWatched = function() { return 1.0; };
+                            }
+                        }
+                    } catch(e) {}
+                });
+            }
+        } catch(e) {}
+
+        console.log('[+] L6B: Wistia completion activated.');
+    }
+
     // =======================================================
     // LAYER 2: MANUALLY TRIGGERED CONTEXT HOOKS
     // =======================================================
@@ -973,7 +1108,12 @@
         // Covers: Teachable video compliance, Cybrary video lessons, EC-Council CodeRed
         installVideoCompletionHook();
 
-        console.log("%c[HOOK ACTIVE] SCORM, AICC, Lectora, Articulate, Captivate, Moodle, Canvas, H5P, D2L, Teachable, Cybrary, CodeRed hooks attached.", "color: green; font-weight: bold;");
+        // K. Embedded video players — Vimeo + Wistia
+        // Covers: Teachable/Thinkific (Vimeo), HubSpot Academy (Wistia)
+        activateVimeoCompletion();
+        activateWistiaCompletion();
+
+        console.log("%c[HOOK ACTIVE] SCORM, AICC, Lectora, Articulate, Captivate, Moodle, Canvas, H5P, D2L, Teachable, Cybrary, CodeRed, Vimeo, Wistia hooks attached.", "color: green; font-weight: bold;");
         alert("SCORM Pass Activated! Pipeline hooks have successfully synchronized.");
     }
 
