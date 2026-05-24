@@ -1,11 +1,15 @@
+// ============================================
+// SCORM/scorm_pass.user.js
+// ============================================
+
 // ==UserScript==
 // @name         SCORM Pass Universal Hook Menu
 // @namespace    https://github.com/kaerez/JSMonkey
 // @supportURL   https://github.com/kaerez/JSMonkey
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/SCORM/scorm_pass.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/SCORM/scorm_pass.user.js
-// @version      1.9
-// @description  Universal tracking proxy hook supporting SCORM 1.2/2004, xAPI (Tin Can), cmi5, and sendBeacon closures with full Time/Objective masking.
+// @version      2.0
+// @description  Universal tracking proxy hook supporting SCORM 1.2/2004, xAPI, cmi5, and Udutu memory arrays with complete Time/Progress masking.
 // @author       EK
 // @license      AGPL-3.0-or-later
 // @match        *://*/*
@@ -44,7 +48,6 @@
             let data = JSON.parse(rawBody);
 
             const mutateStatement = (stmt) => {
-                // A. Correct Status & Score Parameters
                 if (stmt.result) {
                     if (stmt.result.score) {
                         stmt.result.score.scaled = 1.0;
@@ -56,7 +59,6 @@
                     if (stmt.result.duration) { stmt.result.duration = "PT45M22S"; }
                 }
 
-                // B. Remap Failure Activity Verbs to Passing Signatures
                 if (stmt.verb && stmt.verb.id) {
                     if (stmt.verb.id.includes("/failed")) {
                         stmt.verb.id = stmt.verb.id.replace("/failed", "/passed");
@@ -81,7 +83,6 @@
         }
     }
 
-    // Intercept Global fetch Transactions
     const originalFetch = window.fetch;
     window.fetch = function(input, init) {
         if (init && init.body) {
@@ -90,7 +91,6 @@
         return originalFetch.apply(this, arguments);
     };
 
-    // Intercept Traditional XMLHttpRequest Streams
     const originalSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function(body) {
         if (body) {
@@ -99,7 +99,6 @@
         return originalSend.apply(this, arguments);
     };
 
-    // Intercept Asynchronous Web Beacon Payloads (Tab Closure Fail-Safe)
     if (navigator && navigator.sendBeacon) {
         const originalBeacon = navigator.sendBeacon;
         navigator.sendBeacon = function(url, data) {
@@ -110,14 +109,43 @@
         };
     }
 
-    console.log("[+] Universal Elearning Network Interceptor Active (Fetch/XHR/Beacon).");
+    console.log("[+] Universal Elearning Network Interceptor Active.");
 
     // =======================================================
-    // LAYER 2: MANUALLY TRIGGERED CONTEXT HOOKS (SCORM 1.2 / 2004)
+    // LAYER 2: MANUALLY TRIGGERED CONTEXT HOOKS (SCORM 1.2 / 2004 / UDUTU)
     // =======================================================
     function activateScormPass() {
         console.log("--- INJECTING OMNIPRESENT SCORM NETWORK PROXY HOOK ---");
 
+        // A. Handle Udutu Framework In-Memory Engine Arrays directly if exposed
+        const targetWin = [window, window.parent, window.top].find(w => w.gblScreens && Array.isArray(w.gblScreens));
+        if (targetWin) {
+            console.log("[+] Udutu Local Data Architecture verified. Synchronizing screen objects...");
+            try {
+                // Synchronize every individual question and presentation slide definition in RAM
+                targetWin.gblScreens.forEach((screen) => {
+                    screen.visited = true;
+                    screen.completed = true;
+                    if (screen.maxscore > 0) {
+                        screen.score = screen.maxscore;
+                    }
+                });
+
+                if (targetWin.gblCourse && targetWin.gblCourse.baseModule) {
+                    if (typeof targetWin.setModuleCompleted === 'function') {
+                        targetWin.setModuleCompleted(targetWin.gblCourse.baseModule);
+                    }
+                    if (typeof targetWin.evaluateCourseCompletion === 'function') {
+                        targetWin.evaluateCourseCompletion();
+                    }
+                }
+                console.log("[+] Udutu engine arrays forced successfully.");
+            } catch(udutuArrErr) {
+                console.warn("Udutu local variable modification limit reached:", udutuArrErr);
+            }
+        }
+
+        // B. Locate and Intercept the SCORM Tracking Core API
         function findLmsDataBus(win) {
             try {
                 if (win.API_1484_11) return { version: "2004", target: win.API_1484_11 };
@@ -139,24 +167,34 @@
         const nativeLMS = busContext.target;
         console.log(`[+] Hijacking SCORM ${busContext.version} Pipeline Data Ingestion Engine...`);
 
+        // Helper to compile a valid native suspend_data string from active screen registers
+        function buildUdutuSuspendString() {
+            if (!targetWin || !targetWin.gblScreens) return "completed";
+            return targetWin.gblScreens
+                .map(s => s.maxscore > 0 ? `${s.id}:${s.maxscore}` : s.id)
+                .join(",");
+        }
+
         // SCORM BRANCH: 2004 STANDARDS
         if (busContext.version === "2004") {
             const originalSetValue = nativeLMS.SetValue;
             
             secureHook(nativeLMS, 'SetValue', function(element, value) {
                 if (element.includes("score.raw") || element.includes("score.scaled")) {
-                    console.log(`[Hook Intercept] Masking score parameter [${element}]: ${value} -> 100%`);
+                    console.log(`[Hook Intercept] Masking score [${element}]: ${value} -> 100%`);
                     value = element.includes("scaled") ? 1.0 : 100;
                 }
+                if (element.includes("progress_measure")) {
+                    console.log(`[Hook Intercept] Masking progress metrics -> 1.0`);
+                    value = 1.0;
+                }
+                if (element.includes("suspend_data")) {
+                    value = buildUdutuSuspendString();
+                }
                 if (element.includes("objectives.") && (element.includes("success_status") || element.includes("completion_status"))) {
-                    console.log(`[Hook Intercept] Masking sub-objective array completion state -> passed`);
                     value = element.includes("success") ? "passed" : "completed";
                 }
-                if (element.includes("session_time")) {
-                    console.log(`[Hook Intercept] Padding seat-time verification buffer.`);
-                    value = "PT0H45M22S"; 
-                }
-                
+                if (element.includes("session_time")) { value = "PT0H45M22S"; }
                 if (element.includes("success_status")) value = "passed";
                 if (element.includes("completion_status")) value = "completed";
                 
@@ -168,6 +206,8 @@
                 nativeLMS.SetValue("cmi.score.raw", 100);
                 nativeLMS.SetValue("cmi.score.min", 0);
                 nativeLMS.SetValue("cmi.score.max", 100);
+                nativeLMS.SetValue("cmi.progress_measure", 1.0);
+                nativeLMS.SetValue("cmi.suspend_data", buildUdutuSuspendString());
                 nativeLMS.SetValue("cmi.session_time", "PT0H45M22S");
                 nativeLMS.SetValue("cmi.completion_status", "completed");
                 nativeLMS.SetValue("cmi.success_status", "passed");
@@ -180,18 +220,14 @@
 
             secureHook(nativeLMS, 'LMSSetValue', function(element, value) {
                 if (element.includes("score.raw")) {
-                    console.log(`[Hook Intercept] Masking raw score parameter [${element}]: ${value} -> 100`);
+                    console.log(`[Hook Intercept] Masking raw score [${element}]: ${value} -> 100`);
                     value = "100";
                 }
-                if (element.includes("objectives.") && element.includes("status")) {
-                    console.log(`[Hook Intercept] Masking sub-objective objective status array -> passed`);
-                    value = "passed";
+                if (element.includes("suspend_data")) {
+                    value = buildUdutuSuspendString();
                 }
-                if (element.includes("session_time")) {
-                    console.log(`[Hook Intercept] Padding legacy seat-time window timespan.`);
-                    value = "00:45:22.00";
-                }
-                
+                if (element.includes("objectives.") && element.includes("status")) { value = "passed"; }
+                if (element.includes("session_time")) { value = "00:45:22.00"; }
                 if (element.includes("lesson_status")) value = "completed";
                 
                 return originalLMSSetValue.call(nativeLMS, element, value);
@@ -201,14 +237,20 @@
                 nativeLMS.LMSSetValue("cmi.core.score.raw", "100");
                 nativeLMS.LMSSetValue("cmi.core.score.min", "0");
                 nativeLMS.LMSSetValue("cmi.core.score.max", "100");
+                nativeLMS.LMSSetValue("cmi.suspend_data", buildUdutuSuspendString());
                 nativeLMS.LMSSetValue("cmi.core.session_time", "00:45:22.00");
                 nativeLMS.LMSSetValue("cmi.core.lesson_status", "completed");
                 nativeLMS.LMSCommit("");
             } catch(e) {}
         }
 
-        console.log("%c[HOOK ACTIVE] Comprehensive SCORM adjustments attached.", "color: green; font-weight: bold;");
-        alert("SCORM Pass Activated! All outgoing score metrics, seat times, and objective structures are now locked at 100%. Interact with the module or close the tab to submit.");
+        // C. Invoke final save pipeline through Udutu if method signatures match
+        if (targetWin && typeof targetWin.saveProgress === 'function') {
+            try { targetWin.saveProgress(true); } catch(e) {}
+        }
+
+        console.log("%c[HOOK ACTIVE] Comprehensive SCORM & Engine modifications attached.", "color: green; font-weight: bold;");
+        alert("SCORM Pass Activated! Memory structures and tracking streams locked at 100%. Click any navigation button or close the window to process completion.");
     }
 
     // =======================================================
