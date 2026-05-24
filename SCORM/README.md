@@ -53,6 +53,8 @@ Support
 | Vimeo-embedded players | ⚠️ |
 | Wistia-embedded players | ⚠️ |
 | Pluralsight | ⚠️ |
+| ProProfs (LMS-embedded) | ⚠️ |
+| Quizizz (via LMS/LTI) | ⚠️ |
 
 ✅ Fully supported — completion, score and pass/fail recorded server-side as 100%/passed  
 ⚠️ Partially supported — video/lecture completion works; server-graded quizzes and labs are not affected
@@ -95,5 +97,7 @@ Video completion and progress tracking are fully intercepted. **Quiz scores and 
 | **Vimeo-embedded players** | `timeupdate` postMessages rewritten to 100%, iframe seek commands, Vimeo SDK proxy | Anything graded by the host platform separately |
 | **Wistia-embedded players** | `video.time(duration)` seek, `percentWatched()` overridden to 1.0 | Host-platform quiz/assessment gates |
 | **Pluralsight** | Video lesson completion | Skill assessments and IQ scores |
+| **ProProfs (LMS-embedded)** | When ProProfs quiz is embedded as a SCORM package inside an LMS — fully intercepted via SCORM hooks | Quizzes accessed directly on proprofs.com are server-graded |
+| **Quizizz (via LMS/LTI)** | When launched via Canvas or Moodle LTI — LTI grade passback intercepted via postMessage hook | Standalone quizizz.com play is server-side |
 
 **What partial support means in practice:** navigating through the course and closing/submitting will record completion. The progress bar and completion certificate reflect 100%. Any quiz or assessment that the platform grades server-side based on your actual answers is not affected.
