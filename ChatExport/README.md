@@ -1,5 +1,5 @@
-SCORM PASS
-==========
+ChatExport — Claude · ChatGPT · Gemini · Google AI Mode
+=======================================================
 [Return to home page](/README.md)
 <br>
 
