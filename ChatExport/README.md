@@ -11,3 +11,10 @@ Prerequisite
 Installation
 ------------
 Click [here](https://raw.githubusercontent.com/kaerez/JSMonkey/main/ChatExport/chatexport.user.js) to install this script
+
+<br>
+
+Use
+---
+
+Browse to any ChatGPT / Claude / Google AI Mode, then use the new ```Export chat``` button to open the UI.
