@@ -1,5 +1,5 @@
-ChatExport — Claude · ChatGPT · Gemini · Google AI Mode
-=======================================================
+ChatExport — Claude · ChatGPT · Gemini
+======================================
 [Return to home page](/README.md)
 <br>
 
