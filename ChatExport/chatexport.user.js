@@ -3,23 +3,20 @@
 // ============================================
 
 // ==UserScript==
-// @name         ChatExport — Claude · ChatGPT · Gemini · Google AI Mode
-// @namespace    https://github.com/kaerez/JSMonkey
+// @name         ChatExport — Claude · ChatGPT · Gemini
+// @namespace    https://www.kalman.co.il/
 // @version      1.0.0
 // @description  Export a chat with per-part selection — prompts, files, thinking, tool use, code, artifacts — to Markdown, text, JSON, PDF or a ZIP of its files.
 // @author       EK
 // @license      AGPL-3.0-or-later
-// @homepageURL  https://github.com/kaerez/JSMonkey
-// @supportURL   https://github.com/kaerez/JSMonkey
+// @homepageURL  https://www.kalman.co.il/
+// @supportURL   https://www.kalman.co.il/
 // @downloadURL  https://raw.githubusercontent.com/kaerez/JSMonkey/main/ChatExport/chatexport.user.js
 // @updateURL    https://raw.githubusercontent.com/kaerez/JSMonkey/main/ChatExport/chatexport.user.js
 // @match        https://claude.ai/*
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
 // @match        https://gemini.google.com/*
-// @match        https://www.google.com/search*
-// @match        https://share.google/aimode/*
-// @include      /^https:\/\/www\.google\.[a-z.]+\/search\?.*\budm=50\b/
 // @run-at       document-idle
 // @noframes
 // @grant        none
@@ -45,12 +42,10 @@
   'use strict';
 
   const onTarget = () => {
-    const host = location.hostname, path = location.pathname, qs = location.search;
+    const host = location.hostname;
     if (/(^|\.)claude\.ai$/i.test(host)) return true;
     if (/(^|\.)(chatgpt\.com|chat\.openai\.com)$/i.test(host)) return true;
     if (/(^|\.)gemini\.google\.com$/i.test(host)) return true;
-    if (/(^|\.)share\.google$/i.test(host) && /\/aimode\b/i.test(path)) return true;
-    if (/(^|\.)google\.[a-z.]+$/i.test(host) && /[?&]udm=50\b/.test(qs)) return true;
     return false;
   };
 
@@ -115,32 +110,6 @@
       },
       panelSelectors: ['immersive-editor', 'code-immersive-panel', 'text-immersive-panel',
                        '[class*="immersive-panel" i]', '[class*="immersive-editor" i]'],
-    },
-    {
-      id: 'google-ai',
-      test: () => (/(^|\.)google\.[a-z.]+$/i.test(location.hostname)
-                    && /[?&]udm=50\b/.test(location.search))
-                || (/(^|\.)share\.google$/i.test(location.hostname)
-                    && /\/aimode\b/i.test(location.pathname)),
-      infer: true,
-      markers: true,
-      firstPromptFrom: ['textarea[name="q"]', 'input[name="q"]'],
-      turnSelectors: ['[data-subtree*="aimode" i] [data-rl]'],
-      roleOf: (el, prev) => {
-        const s2 = ((typeof el.className === 'string' ? el.className : '') + ' '
-          + (el.getAttribute('data-testid') || '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
-        if (/\b(user|query|prompt|question|你)/.test(s2)) return 'user';
-        if (/\b(response|answer|model|assistant|result)/.test(s2)) return 'assistant';
-        if (prev === 'user') return 'assistant';
-        return (el.textContent || '').trim().length < 300 ? 'user' : 'assistant';
-      },
-      kindSelectors: {
-        thinking:   ['[class*="think" i]', '[class*="reason" i]'],
-        tool:       ['[class*="tool" i]', '[class*="search-result" i]'],
-        artifact:   ['[class*="canvas" i]', '[class*="immersive" i]'],
-        attachment: ['[class*="attach" i]', '[class*="upload" i]'],
-      },
-      panelSelectors: [],
     },
     {
       id: 'generic',
@@ -323,6 +292,10 @@
       .replace(/^\s*---\s*$/gm, '─'.repeat(60))
   );
 
+  const NON_CONTENT = new Set(
+    ['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'LINK', 'META', 'IFRAME', 'SVG', 'CANVAS']);
+  const isContent = el => el && el.nodeType === Node.ELEMENT_NODE && !NON_CONTENT.has(el.tagName);
+
   const outermost = els => els.filter(e => !els.some(o => o !== e && o.contains(e)));
 
   function queryAll(root, selectors) {
@@ -460,114 +433,31 @@
     return parts.filter(p => p.md && p.md.trim());
   }
 
-  const CHROME_SEL = 'nav, header, footer, form, aside, script, style, [role="navigation"], '
-    + '[role="banner"], [role="search"], [role="contentinfo"], [role="complementary"]';
-
-  function inferTurns(root) {
-    const chrome = [...root.querySelectorAll(CHROME_SEL)];
-    const inChrome = el => chrome.some(c => c.contains(el));
-    const textLen = el => (el.textContent || '').trim().length;
-    const rootLen = Math.max(1, textLen(root));
-
-    let best = null;
-    const visit = (el, depth) => {
-      const kids = [...el.children].filter(c => !inChrome(c) && textLen(c) > 25);
-      if (kids.length >= 2 && kids.some(c => textLen(c) > 150)) {
-        const share = kids.reduce((a, c) => a + textLen(c), 0) / rootLen;
-        if (share > 0.3) {
-          const score = kids.length * 1000 + depth;
-          if (!best || score > best.score) best = { score, kids };
-        }
-      }
-      for (const c of el.children) if (!inChrome(c)) visit(c, depth + 1);
-    };
-    visit(root, 0);
-    return best ? best.kids : [];
-  }
-
-  const forcedRole = new WeakMap();
-
-  function headingMarkers(root) {
-    const heads = [...root.querySelectorAll('h2')].filter(h => {
-      const t = (h.textContent || '').trim();
-      return t.length > 2 && t.length < 500 && !h.closest(CHROME_SEL);
-    });
-    if (!heads.length) return [];
-    const marks = [...new Set(heads.map(h => h.closest('[jsname]') || h.parentElement || h))];
-    const byParent = new Map();
-    for (const m of marks) {
-      const par = m.parentElement;
-      if (!par) continue;
-      byParent.set(par, (byParent.get(par) || []).concat([m]));
+  function contentRoot() {
+    const cands = [...document.querySelectorAll('main, [role="main"]'), document.body]
+      .filter(Boolean);
+    let best = document.body, bestScore = -1;
+    for (const el of cands) {
+      if (el !== document.body && !document.body.contains(el)) continue;
+      const heads = el.querySelectorAll('h1, h2, h3').length;
+      const len = (el.textContent || '').trim().length;
+      const score = heads * 100000 + Math.min(len, 99999);
+      if (score > bestScore) { bestScore = score; best = el; }
     }
-    let best = [];
-    for (const v of byParent.values()) if (v.length > best.length) best = v;
-    return best.length ? best : marks;
-  }
-
-  function markerTurns(root) {
-    const marks = headingMarkers(root);
-    if (!marks.length) return [];
-    const out = [];
-
-    const markTexts = marks.map(m => (m.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase());
-    for (const sel of (adapter.firstPromptFrom || [])) {
-      const f = document.querySelector(sel);
-      const v = f && (f.value || '').trim();
-      const dup = v && markTexts.some(t => t.includes(v.slice(0, 40).toLowerCase()));
-      if (v && v.length > 2 && !dup) {
-        const lead = document.createElement('div');
-        lead.textContent = v;
-        forcedRole.set(lead, 'user');
-        out.push(lead);
-        break;
-      }
-    }
-
-    for (let i = 0; i < marks.length; i++) {
-      const m = marks[i];
-      forcedRole.set(m, 'user');
-      out.push(m);
-
-      const stop = marks[i + 1] || null;
-      const wrap = document.createElement('div');
-      let n = m.nextSibling;
-      while (n && n !== stop) {
-        if (!(n.nodeType === Node.ELEMENT_NODE
-              && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|LINK)$/.test(n.tagName))) {
-          wrap.appendChild(n.cloneNode(true));
-        }
-        n = n.nextSibling;
-      }
-      if ((wrap.textContent || '').trim().length > 20) {
-        forcedRole.set(wrap, 'assistant');
-        out.push(wrap);
-      }
-    }
-    return out;
+    return best;
   }
 
   function collectTurns() {
-    const root = document.querySelector('main') || document.body;
-    state.inferred = false;
-    if (adapter.markers) {
-      const marked = markerTurns(root);
-      if (marked.length >= 2) return marked;
-    }
-    let turns = outermost(queryAll(root, adapter.turnSelectors));
-    if (turns.length < 2 && adapter.infer) {
-      const guessed = inferTurns(root);
-      if (guessed.length > turns.length) { turns = guessed; state.inferred = true; }
-    }
+    const turns = outermost(queryAll(contentRoot(), adapter.turnSelectors));
     turns.sort((a, b) =>
       (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
     return turns;
   }
 
   function buildTurn(el, prevRole) {
+    if (!isContent(el)) return { role: 'assistant', el, parts: [] };
     let role = 'assistant';
-    if (forcedRole.has(el)) role = forcedRole.get(el);
-    else { try { role = adapter.roleOf(el, prevRole) || 'assistant'; } catch {  } }
+    try { role = adapter.roleOf(el, prevRole) || 'assistant'; } catch {  }
     if (role !== 'user' && role !== 'assistant') role = role === 'system' ? 'system' : 'assistant';
     const parts = segment(el, role);
     for (const p of parts) {
@@ -2202,7 +2092,6 @@ li { margin:2px 0; }
     foldX: new Map(),
     jumpAt: {},
     source: 'dom',
-    inferred: false,
     apiTried: false,
     apiTitle: null,
     loadedKey: null,
@@ -2910,7 +2799,7 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
         ? `${adapter.id} · deep scan` + (stubs ? `, ${stubs} artifact${stubs === 1 ? '' : 's'} still unread` : ', panels read')
           + (partials ? `, ${partials} partial` : '')
         : `${adapter.id} · rendered page only`
-          + (state.inferred ? ', layout inferred — check the parts' : '')
+
           + (refs.idRow && !refs.idRow.hidden ? ', conversation not identified — paste its URL' : '')
           + (stubs ? `, ${stubs} artifact bod${stubs === 1 ? 'y' : 'ies'} missing — try Deep scan` : '');
     if (refs.api) refs.api.textContent = state.source === 'api' ? 'Reload transcript' : 'Load full transcript';
@@ -3124,9 +3013,4 @@ button.primary:disabled { opacity: .4; cursor: not-allowed; }
   }
 
   boot();
-
-  if (!booted && /(^|\.)google\.[a-z.]+$/i.test(location.hostname)) {
-    const iv = setInterval(() => { boot(); if (booted) clearInterval(iv); }, 1500);
-    setTimeout(() => clearInterval(iv), 10 * 60 * 1000);
-  }
 })();
