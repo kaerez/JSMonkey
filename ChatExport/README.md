@@ -17,4 +17,4 @@ Click [here](https://raw.githubusercontent.com/kaerez/JSMonkey/main/ChatExport/c
 Use
 ---
 
-Browse to any ChatGPT / Claude / Google AI Mode, then use the new ```Export chat``` button to open the UI.
+Browse to any ChatGPT / Claude / Gemini, then use the new ```Export chat``` button to open the UI.
